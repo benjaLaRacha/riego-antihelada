@@ -11,7 +11,6 @@ self.addEventListener('activate', e => {
 });
 self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
-  // nunca cachear los envios a la planilla
   if(url.hostname.includes('script.google')) return;
   if(e.request.method !== 'GET') return;
   e.respondWith(
