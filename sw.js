@@ -1,5 +1,5 @@
-// Guarda la app en el teléfono para que abra sin señal.
-const CACHE = 'antihelada-v1';
+// Guarda la app en el telefono para que abra sin senal.
+const CACHE = 'antihelada-v2';
 const ARCHIVOS = ['./index.html','./manifest.json','./icono-192.png','./icono-512.png'];
 
 self.addEventListener('install', e => {
@@ -11,7 +11,7 @@ self.addEventListener('activate', e => {
 });
 self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
-  // nunca cachear los envíos a la planilla
+  // nunca cachear los envios a la planilla
   if(url.hostname.includes('script.google')) return;
   if(e.request.method !== 'GET') return;
   e.respondWith(
