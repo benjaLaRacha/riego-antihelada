@@ -446,7 +446,16 @@ pintarPanel(); pintarHistorial(); pintarSync(); sincronizar();
 if(!localOk) avisar('Este teléfono no está guardando los datos localmente. Instala la app desde su dirección web, no desde una vista previa.');
 
 if('serviceWorker' in navigator && location.protocol==='https:'){
-  navigator.serviceWorker.register('sw.js').catch(()=>{});
+  const teniaControl = !!navigator.serviceWorker.controller;
+  let recargando = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if(teniaControl && !recargando){ recargando = true; location.reload(); }
+  });
+  navigator.serviceWorker.register('sw.js').then(reg => {
+    reg.update();
+    setInterval(() => reg.update(), 30*60*1000);
+    window.addEventListener('online', () => reg.update());
+  }).catch(()=>{});
 }
 </script>
 </body>
