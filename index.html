@@ -388,6 +388,10 @@ function guardarNoche(){
     flotante('El horómetro al cortar no puede ser menor que el de partida.');
     marcar(['hf']); return;
   }
+  if(gf - gi > 24){
+    flotante('Esos horómetros dan '+num(gf-gi)+' horas de generador en una noche. Revisa los números, por favor.');
+    marcar(['hi','hf']); return;
+  }
   marcar([]);
   const reg = {
     id: d.dataset.edit || (Date.now()+'-'+Math.random().toString(36).slice(2,7)),
