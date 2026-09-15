@@ -70,11 +70,6 @@
   .noche .hrs{font-variant-numeric:tabular-nums;color:var(--hielo);font-weight:600;white-space:nowrap}
   .noche .det{color:var(--gris);font-size:13px;margin-top:4px}
   .noche.finde{border-color:var(--rojo)}
-  .noche .fecha.finde{color:var(--rojo)}
-  .etiqueta{display:inline-block;margin-left:7px;font-size:11px;font-weight:600;letter-spacing:.04em;
-    text-transform:uppercase;color:#F0C4BB;background:rgba(217,112,94,.16);
-    border:1px solid var(--rojo);border-radius:6px;padding:1px 6px;vertical-align:middle}
-  .desde.finde{color:#F0C4BB}
   .marca{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:6px;vertical-align:middle}
   .marca.si{background:var(--verde)} .marca.no{background:var(--ambar)}
   .link{background:none;border:0;color:var(--gris);font-size:13px;text-decoration:underline;padding:4px 0}
@@ -219,7 +214,7 @@ function flotante(txt){
   try{ if(navigator.vibrate) navigator.vibrate([90,60,90]); }catch(e){}
 }
 function marcar(ids){
-  ['inicio','termino','hi','hf','litros','hiPartida'].forEach(id => { const el=$(id); if(el) el.classList.remove('falta'); });
+  ['inicio','termino','tmin','hi','hf','litros','hiPartida'].forEach(id => { const el=$(id); if(el) el.classList.remove('falta'); });
   ids.forEach(id => { const el=$(id); if(el) el.classList.add('falta'); });
   if(ids.length){ const el=$(ids[0]); if(el && el.focus) el.focus(); }
 }
@@ -300,16 +295,12 @@ function pintarPanel(){
   $('btnPrincipal').className = 'big'+(on?' stop':'');
   clearInterval(tick);
   if(on){
-    const finde = esFinde(activo.fecha);
-    $('desde').className = 'desde'+(finde?' finde':'');
     $('desde').textContent = 'Partió a las '+activo.inicio+', noche del '+fechaLarga(activo.fecha)+'.'
-      + (finde ? ' Fin de semana.' : '')
       + (activo.hi!=null ? ' Horómetro al partir: '+num(activo.hi)+'.' : '');
     const correr = () => { $('reloj').innerHTML = hhmm((Date.now()-activo.t0)/3600000)+' <small>h</small>'; };
     correr(); tick = setInterval(correr, 20000);
   }else{
     $('reloj').innerHTML='0:00 <small>h</small>';
-    $('desde').className='desde';
     $('desde').textContent='Aprieta el botón al encender el generador.';
   }
 }
@@ -372,11 +363,12 @@ function cerrarDetalle(){ $('detalle').hidden=true; $('btnPrincipal').hidden=fal
 
 function guardarNoche(){
   const d=$('detalle'), gi=parseFloat($('hi').value), gf=parseFloat($('hf').value),
-        lt=parseFloat($('litros').value);
+        lt=parseFloat($('litros').value), tm=parseFloat($('tmin').value);
 
   const faltan = [];
   if(!$('inicio').value) faltan.push('inicio');
   if(!$('termino').value) faltan.push('termino');
+  if(isNaN(tm)) faltan.push('tmin');
   if(isNaN(gi)) faltan.push('hi');
   if(isNaN(gf)) faltan.push('hf');
   if(isNaN(lt)) faltan.push('litros');
@@ -398,7 +390,7 @@ function guardarNoche(){
     fecha: d.dataset.fecha,
     trabajador: cfg.nombre || 'Sin nombre',
     inicio: $('inicio').value, termino: $('termino').value,
-    tmin: $('tmin').value===''?null:parseFloat($('tmin').value),
+    tmin: isNaN(tm)?null:tm,
     hi: isNaN(gi)?null:gi, hf: isNaN(gf)?null:gf,
     litros: isNaN(lt)?null:lt,
     obs: $('obs').value.trim(),
@@ -422,8 +414,7 @@ function pintarHistorial(){
       r.litros!=null?ent(r.litros)+' L petróleo':null].filter(Boolean).map(esc).join(' · ');
     const fin = esFinde(r.fecha);
     return '<div class="noche'+(fin?' finde':'')+'"><div class="top">'+
-      '<span class="fecha'+(fin?' finde':'')+'"><i class="marca '+(r.subido?'si':'no')+'"></i>'+esc(fechaLarga(r.fecha))+
-      (fin?'<span class="etiqueta">Fin de semana</span>':'')+'</span>'+
+      '<span class="fecha"><i class="marca '+(r.subido?'si':'no')+'"></i>'+esc(fechaLarga(r.fecha))+'</span>'+
       '<span class="hrs">'+hhmm(horas(r.inicio,r.termino))+' h</span></div>'+
       '<div class="det">'+det+'</div>'+
       '<button class="link" data-edit="'+r.id+'">Corregir</button></div>';
