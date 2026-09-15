@@ -69,6 +69,12 @@
   .noche .fecha{font-weight:600;font-size:15px}
   .noche .hrs{font-variant-numeric:tabular-nums;color:var(--hielo);font-weight:600;white-space:nowrap}
   .noche .det{color:var(--gris);font-size:13px;margin-top:4px}
+  .noche.finde{border-color:var(--rojo)}
+  .noche .fecha.finde{color:var(--rojo)}
+  .etiqueta{display:inline-block;margin-left:7px;font-size:11px;font-weight:600;letter-spacing:.04em;
+    text-transform:uppercase;color:#F0C4BB;background:rgba(217,112,94,.16);
+    border:1px solid var(--rojo);border-radius:6px;padding:1px 6px;vertical-align:middle}
+  .desde.finde{color:#F0C4BB}
   .marca{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:6px;vertical-align:middle}
   .marca.si{background:var(--verde)} .marca.no{background:var(--ambar)}
   .link{background:none;border:0;color:var(--gris);font-size:13px;text-decoration:underline;padding:4px 0}
@@ -137,7 +143,8 @@
       <div class="campos">
         <div class="campo"><label for="inicio">Partida del riego</label><input id="inicio" type="time"></div>
         <div class="campo"><label for="termino">Corte del riego</label><input id="termino" type="time"></div>
-        <div class="campo full"><label for="tmin">Temperatura mínima del huerto (°C)</label><input id="tmin" type="number" step="0.1" inputmode="decimal" placeholder="-2.5"></div>
+        <div class="campo"><label for="tmin">Temperatura mínima (°C)</label><input id="tmin" type="number" step="0.1" inputmode="decimal" placeholder="-2.5"></div>
+        <div class="campo"><label for="litros">Litros de petróleo</label><input id="litros" type="number" step="1" inputmode="decimal" placeholder="80"></div>
         <div class="campo"><label for="hi">Horómetro al partir</label><input id="hi" type="number" step="0.1" inputmode="decimal"></div>
         <div class="campo"><label for="hf">Horómetro al cortar</label><input id="hf" type="number" step="0.1" inputmode="decimal"></div>
         <div class="campo full"><label for="obs">Observaciones</label>
@@ -189,6 +196,7 @@ let tick = null, sincronizando = false;
 const $ = id => document.getElementById(id);
 const dosDig = n => String(n).padStart(2,'0');
 const num = n => Number(n).toLocaleString('es-CL',{minimumFractionDigits:1,maximumFractionDigits:1});
+const ent = n => Number(n).toLocaleString('es-CL',{maximumFractionDigits:0});
 const esc = s => String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
 function grabar(){
@@ -211,14 +219,18 @@ function flotante(txt){
   try{ if(navigator.vibrate) navigator.vibrate([90,60,90]); }catch(e){}
 }
 function marcar(ids){
-  ['inicio','termino','hi','hf','hiPartida'].forEach(id => { const el=$(id); if(el) el.classList.remove('falta'); });
+  ['inicio','termino','hi','hf','litros','hiPartida'].forEach(id => { const el=$(id); if(el) el.classList.remove('falta'); });
   ids.forEach(id => { const el=$(id); if(el) el.classList.add('falta'); });
   if(ids.length){ const el=$(ids[0]); if(el && el.focus) el.focus(); }
 }
 
 /* ---------- fechas y horas ---------- */
-function nocheDe(d){ const x=new Date(d); if(x.getHours()<12) x.setDate(x.getDate()-1);
+/* La fecha es la del celular en el momento de apretar "Partió el riego":
+   una madrugada de viernes queda anotada como viernes. */
+function fechaDe(d){ const x=new Date(d);
   return x.getFullYear()+'-'+dosDig(x.getMonth()+1)+'-'+dosDig(x.getDate()); }
+function esFinde(f){ if(!f) return false; const [y,m,d]=f.split('-').map(Number);
+  const n=new Date(y,m-1,d).getDay(); return n===0 || n===6; }
 function horaDe(d){ return dosDig(d.getHours())+':'+dosDig(d.getMinutes()); }
 function horas(i,f){ if(!i||!f) return 0;
   const [a,b]=i.split(':').map(Number), [c,e]=f.split(':').map(Number);
@@ -233,7 +245,7 @@ async function enviar(reg){
   const cuerpo = {
     token: cfg.token, id: reg.id, fecha: reg.fecha, trabajador: reg.trabajador,
     inicio: reg.inicio, termino: reg.termino, horas: +horas(reg.inicio,reg.termino).toFixed(2),
-    tmin: reg.tmin, hi: reg.hi, hf: reg.hf,
+    tmin: reg.tmin, hi: reg.hi, hf: reg.hf, litros: reg.litros,
     horasGen: (reg.hi!=null && reg.hf!=null && reg.hf>=reg.hi) ? +(reg.hf-reg.hi).toFixed(2) : null,
     obs: reg.obs, creado: reg.creado
   };
@@ -288,12 +300,16 @@ function pintarPanel(){
   $('btnPrincipal').className = 'big'+(on?' stop':'');
   clearInterval(tick);
   if(on){
+    const finde = esFinde(activo.fecha);
+    $('desde').className = 'desde'+(finde?' finde':'');
     $('desde').textContent = 'Partió a las '+activo.inicio+', noche del '+fechaLarga(activo.fecha)+'.'
+      + (finde ? ' Fin de semana.' : '')
       + (activo.hi!=null ? ' Horómetro al partir: '+num(activo.hi)+'.' : '');
     const correr = () => { $('reloj').innerHTML = hhmm((Date.now()-activo.t0)/3600000)+' <small>h</small>'; };
     correr(); tick = setInterval(correr, 20000);
   }else{
     $('reloj').innerHTML='0:00 <small>h</small>';
+    $('desde').className='desde';
     $('desde').textContent='Aprieta el botón al encender el generador.';
   }
 }
@@ -334,7 +350,7 @@ function comenzar(){
     marcar(['hiPartida']); return;
   }
   const ahora = new Date();
-  activo = { fecha: nocheDe(ahora), inicio: horaDe(ahora), t0: ahora.getTime(), hi: h };
+  activo = { fecha: fechaDe(ahora), inicio: horaDe(ahora), t0: ahora.getTime(), hi: h };
   grabar(); cerrarPartida(); avisar(''); pintarPanel();
 }
 
@@ -347,6 +363,7 @@ function abrirDetalle(fecha, ini, fin, reg){
   $('tmin').value = reg && reg.tmin!=null ? reg.tmin : '';
   $('hi').value = reg && reg.hi!=null ? reg.hi : (!reg && activo && activo.hi!=null ? activo.hi : '');
   $('hf').value = reg && reg.hf!=null ? reg.hf : '';
+  $('litros').value = reg && reg.litros!=null ? reg.litros : '';
   $('obs').value = reg ? (reg.obs||'') : '';
   $('btnPrincipal').hidden = true;
   d.scrollIntoView({behavior:'smooth', block:'center'});
@@ -354,13 +371,15 @@ function abrirDetalle(fecha, ini, fin, reg){
 function cerrarDetalle(){ $('detalle').hidden=true; $('btnPrincipal').hidden=false; marcar([]); }
 
 function guardarNoche(){
-  const d=$('detalle'), gi=parseFloat($('hi').value), gf=parseFloat($('hf').value);
+  const d=$('detalle'), gi=parseFloat($('hi').value), gf=parseFloat($('hf').value),
+        lt=parseFloat($('litros').value);
 
   const faltan = [];
   if(!$('inicio').value) faltan.push('inicio');
   if(!$('termino').value) faltan.push('termino');
   if(isNaN(gi)) faltan.push('hi');
   if(isNaN(gf)) faltan.push('hf');
+  if(isNaN(lt)) faltan.push('litros');
   if(faltan.length){
     flotante('Para guardar, debes completar los datos de la noche, por favor.');
     marcar(faltan); return;
@@ -377,6 +396,7 @@ function guardarNoche(){
     inicio: $('inicio').value, termino: $('termino').value,
     tmin: $('tmin').value===''?null:parseFloat($('tmin').value),
     hi: isNaN(gi)?null:gi, hf: isNaN(gf)?null:gf,
+    litros: isNaN(lt)?null:lt,
     obs: $('obs').value.trim(),
     creado: new Date().toISOString(),
     subido: false
@@ -394,9 +414,12 @@ function pintarHistorial(){
     const gen = (r.hi!=null&&r.hf!=null&&r.hf>=r.hi)?(r.hf-r.hi):null;
     const det = [r.inicio+' a '+r.termino,
       r.tmin!=null?'mín '+num(r.tmin)+' °C':null,
-      gen!=null?'generador '+num(gen)+' h':null].filter(Boolean).map(esc).join(' · ');
-    return '<div class="noche"><div class="top">'+
-      '<span class="fecha"><i class="marca '+(r.subido?'si':'no')+'"></i>'+esc(fechaLarga(r.fecha))+'</span>'+
+      gen!=null?'generador '+num(gen)+' h':null,
+      r.litros!=null?ent(r.litros)+' L petróleo':null].filter(Boolean).map(esc).join(' · ');
+    const fin = esFinde(r.fecha);
+    return '<div class="noche'+(fin?' finde':'')+'"><div class="top">'+
+      '<span class="fecha'+(fin?' finde':'')+'"><i class="marca '+(r.subido?'si':'no')+'"></i>'+esc(fechaLarga(r.fecha))+
+      (fin?'<span class="etiqueta">Fin de semana</span>':'')+'</span>'+
       '<span class="hrs">'+hhmm(horas(r.inicio,r.termino))+' h</span></div>'+
       '<div class="det">'+det+'</div>'+
       '<button class="link" data-edit="'+r.id+'">Corregir</button></div>';
